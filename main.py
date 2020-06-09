@@ -2,37 +2,37 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.models import load_model
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM
+from keras.layers import Dropout
 
-dataset_train = pd.read_csv("weight_train.csv", header = None).T
-training_set = dataset_train.iloc[:, 0].values.reshape(-1, 1)
+def predict(X_test, regressor, scaler):
+    X_test = np.array(X_test)
+    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+    predicted_weight = regressor.predict(X_test)
+    predicted_weight = scaler.inverse_transform(predicted_weight)
+    return predicted_weight
 
-dataset_test = pd.read_csv("weight_test.csv", header = None).T
-testing_set = dataset_test.iloc[:, 0].values.reshape(-1, 1)
-
-# Applying scaling.
-from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler(feature_range = (0, 1))
-
-train_model = False
-
-# Preparing the training set.
-window = 4
-X_train = []
-y_train = []
-if train_model:
-    training_set = scaler.fit_transform(training_set)
-    for i in range(window, training_set.shape[0]):
-        X_train.append(training_set[i - window:i, 0])
-        y_train.append(training_set[i, 0])
-    X_train, y_train = np.array(X_train), np.array(y_train)
-    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+def visualize_results(testing_set, predicted_weight):
+    # Visualising the results.
+    plt.plot(testing_set, color = 'red', label = 'Real Weight')
+    plt.plot(predicted_weight, color = 'blue', label = 'Predicted Weight')
+    plt.title('Weight Prediction')
+    plt.xlabel('Time')
+    plt.ylabel('Weight')
+    plt.legend()
+    plt.show()
     
-    # RNN.
-    from keras.models import Sequential
-    from keras.layers import Dense
-    from keras.layers import LSTM
-    from keras.layers import Dropout
+def load_data():
+    dataset_train = pd.read_csv("weight_train.csv", header = None).T
+    training_set = dataset_train.iloc[:, 0].values.reshape(-1, 1)
     
+    dataset_test = pd.read_csv("weight_test.csv", header = None).T
+    testing_set = dataset_test.iloc[:, 0].values.reshape(-1, 1)
+    return dataset_train, training_set, dataset_test, testing_set
+
+def train_rnn(X_train, y_train):
     # Creating RNN.
     regressor = Sequential()
     
@@ -64,6 +64,31 @@ if train_model:
     # Saving the model.
     regressor.save('weights_model.h5')
     
+    return regressor
+
+# Applying scaling.
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler(feature_range = (0, 1))
+
+train_model = False
+
+dataset_train, training_set, dataset_test, testing_set = load_data()
+
+# Preparing the training set.
+window = 4
+X_train = []
+y_train = []
+if train_model:
+    training_set = scaler.fit_transform(training_set)
+    for i in range(window, training_set.shape[0]):
+        X_train.append(training_set[i - window:i, 0])
+        y_train.append(training_set[i, 0])
+    X_train, y_train = np.array(X_train), np.array(y_train)
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    
+    # Training the RNN.
+    regressor = train_rnn(X_train, y_train)
+    
     # Testing.
     dataset_total = pd.concat((dataset_train[0], dataset_test[0]), axis = 0)
     inputs = dataset_total[len(dataset_total) - len(dataset_test) - window:].values
@@ -72,6 +97,10 @@ if train_model:
     X_test = []
     for i in range(window, inputs.shape[0]):
         X_test.append(inputs[i-window:i, 0])
+        
+    predicted_weight = predict(X_test, regressor, scaler)
+    
+    visualize_results(testing_set, predicted_weight)
 else:
     # Loading model.
     regressor = load_model('weights_model.h5')
@@ -90,17 +119,6 @@ else:
     inputs = inputs.reshape(-1,1)
     inputs = scaler.transform(inputs)
     X_test = [inputs[:, 0]]
- 
-X_test = np.array(X_test)
-X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-predicted_weight = regressor.predict(X_test)
-predicted_weight = scaler.inverse_transform(predicted_weight)
-
-# Visualising the results.
-plt.plot(testing_set, color = 'red', label = 'Real Weight')
-plt.plot(predicted_weight, color = 'blue', label = 'Predicted Weight')
-plt.title('Weight Prediction')
-plt.xlabel('Time')
-plt.ylabel('Weight')
-plt.legend()
-plt.show()
+    
+    predicted_weight = predict(X_test, regressor, scaler)
+    print(f"Tomorrow your weight will be: {predicted_weight[0][0]}")
