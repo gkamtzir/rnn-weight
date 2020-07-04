@@ -19,8 +19,8 @@ def visualize_results(testing_set, predicted_weight):
     plt.plot(testing_set, color = 'red', label = 'Real Weight')
     plt.plot(predicted_weight, color = 'blue', label = 'Predicted Weight')
     plt.title('Weight Prediction')
-    plt.xlabel('Time')
-    plt.ylabel('Weight')
+    plt.xlabel('Time (in days)')
+    plt.ylabel('Weight (in kg)')
     plt.legend()
     plt.show()
     
